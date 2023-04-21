@@ -1,8 +1,13 @@
-set(TARGET_NAME w5x00_loopback)
+set(TARGET_NAME tcp_data_transfer)
 
 add_executable(${TARGET_NAME}
         ${TARGET_NAME}.c
+        tcp_protocol.c
         )
+target_include_directories(${TARGET_NAME} PUBLIC
+        ${PROJECT_SOURCE_DIR}
+)
+
 
 target_link_libraries(${TARGET_NAME} PRIVATE
         pico_stdlib
