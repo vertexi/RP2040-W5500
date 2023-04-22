@@ -2,7 +2,6 @@ set(TARGET_NAME tcp_data_transfer)
 
 add_executable(${TARGET_NAME}
         ${TARGET_NAME}.c
-        tcp_protocol.c
         )
 target_include_directories(${TARGET_NAME} PUBLIC
         ${PROJECT_SOURCE_DIR}
