@@ -35,6 +35,8 @@
 /* Port */
 #define PORT_LOOPBACK 5000
 
+#define UART_ID uart0
+
 /**
  * ----------------------------------------------------------------------------------------------------
  * Variables
@@ -52,7 +54,7 @@ static wiz_NetInfo g_net_info =
 };
 
 /* Loopback */
-static uint8_t g_loopback_buf[ETHERNET_BUF_MAX_SIZE] = {
+static uint8_t receive_buf[ETHERNET_BUF_MAX_SIZE] = {
     0,
 };
 
@@ -91,15 +93,34 @@ int main()
     print_network_information(g_net_info);
 
     /* Infinite loop */
+    bool data_transfer = false;
     while (1)
     {
         /* TCP server loopback test */
-        if ((retval = tcp_data_server(SOCKET_LOOPBACK, g_loopback_buf, PORT_LOOPBACK)) < 0)
+        if ((retval = tcp_data_recv(SOCKET_LOOPBACK, receive_buf, PORT_LOOPBACK)) < 0)
         {
-            printf(" Loopback error : %d\n", retval);
-
-            while (1)
-                ;
+            // error
+            printf("%d\n", retval);
+            data_transfer = false;
+            if (data_transfer) {
+                printf("true");
+            } else {
+                printf("false");
+            }
+        } else if (retval == 0) {
+            // no message
+        } else {
+            if (receive_buf[0] == 'h' && receive_buf[1] == 'e' && receive_buf[2] == 'l' && receive_buf[3] == 'l') {
+                // start data transfer
+                data_transfer = true;
+                printf("ture");
+            }
+            for (uint16_t receive_idx = 0; receive_idx < retval; receive_idx++) {
+                uart_putc_raw(UART_ID, receive_buf[receive_idx]);
+            }
+        }
+        if (data_transfer) {
+            tcp_data_send(SOCKET_LOOPBACK, "hello\n", 6, PORT_LOOPBACK);
         }
     }
 }
