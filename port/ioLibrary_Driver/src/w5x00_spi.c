@@ -136,11 +136,27 @@ static void wizchip_critical_section_unlock(void)
 void wizchip_spi_initialize(void)
 {
     // this example will use SPI0 at 5MHz
-    spi_init(SPI_PORT, 5000 * 1000);
+    spi_init(SPI_PORT, 30 * 1000 * 1000);
 
     gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_CS, GPIO_FUNC_SPI);
+    gpio_pull_up(PIN_MOSI);
+    gpio_pull_up(PIN_MISO);
+    gpio_set_slew_rate(PIN_SCK, GPIO_SLEW_RATE_FAST);
+    gpio_set_slew_rate(PIN_MOSI, GPIO_SLEW_RATE_FAST);
+    gpio_set_slew_rate(PIN_MISO, GPIO_SLEW_RATE_FAST);
+    gpio_set_slew_rate(PIN_CS, GPIO_SLEW_RATE_FAST);
+    gpio_set_drive_strength(PIN_SCK, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_drive_strength(PIN_MOSI, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_drive_strength(PIN_MISO, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_drive_strength(PIN_CS, GPIO_DRIVE_STRENGTH_12MA);
+    printf("\n");
+    printf("\n");
+    printf("spi freq: %u\n", spi_get_baudrate(spi_default));
+    printf("\n");
+    printf("\n");
 
     // make the SPI pins available to picotool
     bi_decl(bi_3pins_with_func(PIN_MISO, PIN_MOSI, PIN_SCK, GPIO_FUNC_SPI));
