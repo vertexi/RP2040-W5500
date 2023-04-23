@@ -2,9 +2,11 @@ set(TARGET_NAME tcp_data_transfer)
 
 add_executable(${TARGET_NAME}
         ${TARGET_NAME}.c
+        tcp.c
         )
 target_include_directories(${TARGET_NAME} PUBLIC
         ${PROJECT_SOURCE_DIR}
+        ${WIZNET_DIR}/Ethernet
 )
 
 
@@ -14,7 +16,6 @@ target_link_libraries(${TARGET_NAME} PRIVATE
         hardware_dma
         ETHERNET_FILES
         IOLIBRARY_FILES
-        LOOPBACK_FILES
         )
 
 pico_enable_stdio_usb(${TARGET_NAME} 0)
