@@ -44,9 +44,9 @@
 static wiz_NetInfo g_net_info =
     {
         .mac = {0x00, 0x08, 0xDC, 0x12, 0x34, 0x56}, // MAC address
-        .ip = {192, 168, 1, 2},                     // IP address
+        .ip = {192, 168, 1, 2},                      // IP address
         .sn = {255, 255, 255, 0},                    // Subnet Mask
-        .gw = {192, 168, 1, 1},                     // Gateway
+        .gw = {192, 168, 1, 1},                      // Gateway
         .dns = {8, 8, 8, 8},                         // DNS server
         .dhcp = NETINFO_STATIC                       // DHCP enable/disable
 };
@@ -64,10 +64,8 @@ static uint8_t g_loopback_buf[ETHERNET_BUF_MAX_SIZE] = {
 /* Clock */
 static void set_clock_khz(void);
 
-static void set_clock_khz(void);
-
-#define CPU_FREQ (240*KHZ) // 240k khz, 240 MHz cpu clock
-#define UART_BAUD (115200) // UART baud rate
+#define CPU_FREQ (240 * KHZ) // 240k khz, 240 MHz cpu clock
+#define UART_BAUD (115200)   // UART baud rate
 
 #include "hardware/spi.h"
 // for overclocking
@@ -79,7 +77,6 @@ static void set_clock_khz(void);
 #include "hardware/clocks.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
-
 
 void gset_sys_clock_pll(uint32_t vco_freq, uint post_div1, uint post_div2)
 {
@@ -108,11 +105,11 @@ void gset_sys_clock_pll(uint32_t vco_freq, uint post_div1, uint post_div2)
                         CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
                         freq, freq);
 
-       clock_configure(clk_peri,
-                       0, // Only AUX mux on ADC
-                       CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                       CPU_FREQ * KHZ,
-                       CPU_FREQ * KHZ);
+        clock_configure(clk_peri,
+                        0, // Only AUX mux on ADC
+                        CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
+                        CPU_FREQ * KHZ,
+                        CPU_FREQ * KHZ);
     }
 }
 
@@ -131,7 +128,8 @@ static inline bool gset_sys_clock_khz(uint32_t freq_khz, bool required)
     return false;
 }
 
-void measure_freqs(void) {
+void measure_freqs(void)
+{
     uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
     uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
     uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
@@ -173,7 +171,8 @@ int main()
     {
         stdio_uart_init_full(uart0, UART_BAUD, PICO_DEFAULT_UART_TX_PIN, PICO_DEFAULT_UART_RX_PIN);
         uart_set_format(uart0, 8, 1, UART_PARITY_EVEN);
-    } else
+    }
+    else
     {
         return 0;
     }
@@ -191,16 +190,53 @@ int main()
     /* Get network information */
     print_network_information(g_net_info);
 
+    uint16_t recv_size = 0;
+#define SEND_SIZE 8 * 7 * 1024
+    uint8_t send_buf[SEND_SIZE] = {'h', 'e', 'l', 'l', 'o', 'm', 'm'};
+    for (uint16_t i = 0; i < 8 * 1024; i++)
+    {
+        send_buf[i * 7 + 0] = 'h';
+        send_buf[i * 7 + 1] = 'e';
+        send_buf[i * 7 + 2] = 'l';
+        send_buf[i * 7 + 3] = 'l';
+        send_buf[i * 7 + 4] = 'o';
+        send_buf[i * 7 + 5] = 'm';
+        send_buf[i * 7 + 6] = 'm';
+    }
+    bool data_transfer = false;
     /* Infinite loop */
     while (1)
     {
         /* TCP server loopback test */
-        if ((retval = loopback_tcps(SOCKET_LOOPBACK, g_loopback_buf, PORT_LOOPBACK)) < 0)
+        if (data_transfer)
+        {
+            retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, send_buf, SEND_SIZE, PORT_LOOPBACK);
+        }
+        else
+        {
+            retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, send_buf, 0, PORT_LOOPBACK);
+        }
+        if (retval < 0)
         {
             printf(" Loopback error : %d\n", retval);
 
             while (1)
                 ;
+        }
+        if (recv_size > 4)
+        {
+            if (g_loopback_buf[0] == 'h' && g_loopback_buf[1] == 'e' &&
+                g_loopback_buf[2] == 'l' && g_loopback_buf[3] == 'l' && g_loopback_buf[4] == 'o')
+            {
+                printf("start transfer data!\n");
+                data_transfer = true;
+            }
+            else if (g_loopback_buf[0] == 'e' && g_loopback_buf[1] == 'n' &&
+                     g_loopback_buf[2] == 'd' && g_loopback_buf[3] == '!' && g_loopback_buf[4] == '!')
+            {
+                printf("end transfer data!\n");
+                data_transfer = false;
+            }
         }
     }
 }

@@ -3,3 +3,4 @@
     -c "adapter speed 5000" -c "program build/examples/tcp_data_transfer/tcp_data_transfer.elf verify reset exit"
 
 @REM build/examples/loopback/w5x00_loopback.elf
+@REM build/examples/tcp_data_transfer/tcp_data_transfer.elf
