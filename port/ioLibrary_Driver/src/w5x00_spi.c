@@ -194,6 +194,10 @@ void wizchip_cris_initialize(void)
     reg_wizchip_cris_cbfunc(wizchip_critical_section_lock, wizchip_critical_section_unlock);
 }
 
+#if (_WIZCHIP_ == W5500)
+uint8_t w5500_memsize[2][8] = {{16, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}};
+#endif
+
 void wizchip_initialize(void)
 {
     /* Deselect the FLASH : chip select high */
@@ -213,7 +217,7 @@ void wizchip_initialize(void)
 #if (_WIZCHIP_ == W5100S)
     uint8_t memsize[2][4] = {{2, 2, 2, 2}, {2, 2, 2, 2}};
 #elif (_WIZCHIP_ == W5500)
-    uint8_t memsize[2][8] = {{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}};
+    uint8_t **memsize = (uint8_t **)w5500_memsize;
 #endif
 
     if (ctlwizchip(CW_INIT_WIZCHIP, (void *)memsize) == -1)

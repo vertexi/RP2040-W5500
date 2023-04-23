@@ -195,14 +195,15 @@ int main()
     uint8_t send_buf[SEND_SIZE] = {'h', 'e', 'l', 'l', 'o', 'm', 'm'};
     for (uint16_t i = 0; i < 8 * 1024; i++)
     {
-        send_buf[i * 7 + 0] = 'h';
-        send_buf[i * 7 + 1] = 'e';
-        send_buf[i * 7 + 2] = 'l';
-        send_buf[i * 7 + 3] = 'l';
-        send_buf[i * 7 + 4] = 'o';
-        send_buf[i * 7 + 5] = 'm';
-        send_buf[i * 7 + 6] = 'm';
+        send_buf[i * 7 + 0] = i / 100000 % 10 + 48;
+        send_buf[i * 7 + 1] = i / 10000 % 10 + 48;
+        send_buf[i * 7 + 2] = i / 1000 % 10 + 48;
+        send_buf[i * 7 + 3] = i / 100 % 10 + 48;
+        send_buf[i * 7 + 4] = i / 10 % 10 + 48;
+        send_buf[i * 7 + 5] = i / 1 % 10 + 48;
+        send_buf[i * 7 + 6] = ',';
     }
+    printf("ok\n");
     bool data_transfer = false;
     /* Infinite loop */
     while (1)

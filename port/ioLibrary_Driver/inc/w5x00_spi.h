@@ -24,6 +24,10 @@
 /* Use SPI DMA */
 #define USE_SPI_DMA // if you want to use SPI DMA, uncomment.
 
+#if (_WIZCHIP_ == W5500)
+extern uint8_t w5500_memsize[2][8];
+#endif
+
 /**
  * ----------------------------------------------------------------------------------------------------
  * Functions
