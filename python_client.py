@@ -46,13 +46,14 @@ def loopback_test():
 def data_transfer_test():
     start = time.time_ns()
     sock.send(b"hello")
-    count = int(6000*14*1024/7)
-    send_message = b""
+    count = int(8*1024)
     send_messages = []
-    a = b"hellomm"
+    single_packet = []
     for i in range(count):
-        send_messages.append(a)
-    send_message = b''.join(send_messages)
+        single_packet.append(str(i).zfill(6))
+    for i in range(1000):
+        send_messages += single_packet
+    send_message = str.encode(','.join(send_messages))
     send_message_len = len(send_message)
     end = time.time_ns()
     print((end - start)/1000_000_000)
