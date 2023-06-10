@@ -4,3 +4,4 @@
 
 @REM build/examples/loopback/w5x00_loopback.elf
 @REM build/examples/tcp_data_transfer/tcp_data_transfer.elf
+@REM build/examples/spi_server/spi_server.elf

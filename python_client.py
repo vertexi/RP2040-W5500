@@ -46,7 +46,7 @@ def loopback_test():
 def data_transfer_test():
     start = time.time_ns()
     sock.send(b"hello")
-    count = int(8*1024)
+    count = int(1)
     send_messages = []
     single_packet = []
     for i in range(count):
@@ -55,6 +55,7 @@ def data_transfer_test():
         send_messages += single_packet
     send_message = str.encode(','.join(send_messages))
     send_message_len = len(send_message)
+    send_message_len = 409
     end = time.time_ns()
     print((end - start)/1000_000_000)
 
@@ -78,6 +79,12 @@ def data_transfer_test():
     print(recv_message[:send_message_len] == send_message)
     print((end - start)/1000_000_000)
     print(send_message_len*8/((end - start)/1000))
+    data = b'\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE'
+
+    # Print each byte in hexadecimal format
+    for byte in recv_message:
+        print(hex(byte)[2:].zfill(2), end=' ')
+    print()
     a = input()
 
 if __name__ == '__main__':

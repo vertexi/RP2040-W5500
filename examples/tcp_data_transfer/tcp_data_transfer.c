@@ -1,45 +1,15 @@
-/**
- * Copyright (c) 2021 WIZnet Co.,Ltd
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
- * ----------------------------------------------------------------------------------------------------
- * Includes
- * ----------------------------------------------------------------------------------------------------
- */
 #include <stdio.h>
-
 #include "port_common.h"
-
 #include "wizchip_conf.h"
 #include "w5x00_spi.h"
-
 #include "tcp.h"
 
-/**
- * ----------------------------------------------------------------------------------------------------
- * Macros
- * ----------------------------------------------------------------------------------------------------
- */
-/* Clock */
+
 #define PLL_SYS_KHZ (133 * 1000)
-
-/* Buffer */
 #define ETHERNET_BUF_MAX_SIZE (1024 * 2)
-
-/* Socket */
 #define SOCKET_LOOPBACK 0
-
-/* Port */
 #define PORT_LOOPBACK 5000
 
-/**
- * ----------------------------------------------------------------------------------------------------
- * Variables
- * ----------------------------------------------------------------------------------------------------
- */
 /* Network */
 static wiz_NetInfo g_net_info =
     {
@@ -56,16 +26,9 @@ static uint8_t g_loopback_buf[ETHERNET_BUF_MAX_SIZE] = {
     0,
 };
 
-/**
- * ----------------------------------------------------------------------------------------------------
- * Functions
- * ----------------------------------------------------------------------------------------------------
- */
-/* Clock */
-static void set_clock_khz(void);
-
 #define CPU_FREQ (240 * KHZ) // 240k khz, 240 MHz cpu clock
-#define UART_BAUD (115200)   // UART baud rate
+#define UART_BAUD (921600)   // UART baud rate
+#define SPI_FREQ 20000000
 
 #include "hardware/spi.h"
 // for overclocking
@@ -77,6 +40,14 @@ static void set_clock_khz(void);
 #include "hardware/clocks.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
+
+#include "pico/multicore.h"
+
+// for sine wave lookup table
+#include "hardware/interp.h"
+#include <math.h>
+
+const uint LED_PIN = 25;
 
 void gset_sys_clock_pll(uint32_t vco_freq, uint post_div1, uint post_div2)
 {
@@ -156,14 +127,39 @@ void measure_freqs(void)
  * Main
  * ----------------------------------------------------------------------------------------------------
  */
+#define BUFFER_MAX 1024 // user-define
+
+uint8_t buffer_idx = 2;
+char buffer_array[2][BUFFER_MAX];
+
+uint16_t buffer_count = 0;
+
+void mem_cpy(char *source, char *dst, uint32_t count, uint32_t size)
+{
+    uint32_t bytesize = size * count;
+    char *source_ptr = source;
+    char *dst_ptr = dst;
+    for (uint32_t memidx = 0; memidx < bytesize; memidx++)
+    {
+        *(dst_ptr++) = *(source_ptr++);
+    }
+}
+
+void core1_main(void)
+{
+    while(true)
+    {
+        spi_read_blocking(spi1, 0, buffer_array[0], BUFFER_MAX);
+        buffer_idx = 0;
+        spi_read_blocking(spi1, 0, buffer_array[1], BUFFER_MAX);
+        buffer_idx = 1;
+    }
+}
+
 int main()
 {
     /* Initialize */
     int retval = 0;
-
-    // set_clock_khz();
-
-    // stdio_init_all();
 
     // set up clock
     vreg_set_voltage(VREG_VOLTAGE_1_30);
@@ -178,6 +174,12 @@ int main()
     }
 
     measure_freqs();
+
+    // set up led indicator
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_put(LED_PIN, 1);
+
     wizchip_spi_initialize();
     wizchip_cris_initialize();
 
@@ -190,19 +192,26 @@ int main()
     /* Get network information */
     print_network_information(g_net_info);
 
+    // use SPI1 around at 40MHz.
+    spi_init(spi1, SPI_FREQ);
+    spi_set_slave(spi1, true);
+    spi_set_format(spi1,
+                   8,         // number of bits per transfer
+                   SPI_CPOL_1, // polarity CPOL
+                   SPI_CPHA_0, // phase CPHA
+                   SPI_MSB_FIRST);
+    printf("spi freq: %u\n", spi_get_baudrate(spi1));
+    gpio_set_function(12, GPIO_FUNC_SPI);
+    gpio_set_function(14, GPIO_FUNC_SPI);
+    gpio_set_function(15, GPIO_FUNC_SPI);
+    gpio_set_function(13, GPIO_FUNC_SPI);
+
     uint16_t recv_size = 0;
-#define SEND_SIZE 8 * 7 * 1024
-    uint8_t send_buf[SEND_SIZE] = {'h', 'e', 'l', 'l', 'o', 'm', 'm'};
-    for (uint16_t i = 0; i < 8 * 1024; i++)
-    {
-        send_buf[i * 7 + 0] = i / 100000 % 10 + 48;
-        send_buf[i * 7 + 1] = i / 10000 % 10 + 48;
-        send_buf[i * 7 + 2] = i / 1000 % 10 + 48;
-        send_buf[i * 7 + 3] = i / 100 % 10 + 48;
-        send_buf[i * 7 + 4] = i / 10 % 10 + 48;
-        send_buf[i * 7 + 5] = i / 1 % 10 + 48;
-        send_buf[i * 7 + 6] = ',';
-    }
+    uint8_t send_buf[7] = {'h', 'e', 'l', 'l', 'o', 'm', 'm'};
+
+    multicore_reset_core1();
+    multicore_launch_core1(core1_main);
+
     printf("ok\n");
     bool data_transfer = false;
     /* Infinite loop */
@@ -211,12 +220,16 @@ int main()
         /* TCP server loopback test */
         if (data_transfer)
         {
-            retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, send_buf, SEND_SIZE, PORT_LOOPBACK);
+            if (buffer_idx < 2)
+            {
+                retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, (char *)(buffer_array[buffer_idx]), BUFFER_MAX, PORT_LOOPBACK);
+            }
         }
         else
         {
             retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, send_buf, 0, PORT_LOOPBACK);
         }
+
         if (retval < 0)
         {
             printf(" Loopback error : %d\n", retval);
@@ -231,34 +244,16 @@ int main()
             {
                 printf("start transfer data!\n");
                 data_transfer = true;
+                recv_size = 0;
             }
             else if (g_loopback_buf[0] == 'e' && g_loopback_buf[1] == 'n' &&
                      g_loopback_buf[2] == 'd' && g_loopback_buf[3] == '!' && g_loopback_buf[4] == '!')
             {
                 printf("end transfer data!\n");
                 data_transfer = false;
+                recv_size = 0;
             }
         }
     }
 }
 
-/**
- * ----------------------------------------------------------------------------------------------------
- * Functions
- * ----------------------------------------------------------------------------------------------------
- */
-/* Clock */
-static void set_clock_khz(void)
-{
-    // set a system clock frequency in khz
-    set_sys_clock_khz(PLL_SYS_KHZ, true);
-
-    // configure the specified clock
-    clock_configure(
-        clk_peri,
-        0,                                                // No glitchless mux
-        CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, // System PLL on AUX mux
-        PLL_SYS_KHZ * 1000,                               // Input frequency
-        PLL_SYS_KHZ * 1000                                // Output (must be same as no divider)
-    );
-}
