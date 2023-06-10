@@ -129,7 +129,8 @@ void measure_freqs(void)
  */
 #define BUFFER_MAX 1024 // user-define
 
-uint8_t buffer_idx = 2;
+volatile bool buffer_fill = false;
+volatile uint8_t buffer_idx = 2;
 char buffer_array[2][BUFFER_MAX];
 
 uint16_t buffer_count = 0;
@@ -145,16 +146,50 @@ void mem_cpy(char *source, char *dst, uint32_t count, uint32_t size)
     }
 }
 
+void __not_in_flash_func(spi_infinite_reading)(spi_inst_t *spi, uint8_t repeated_tx_data) {
+    const size_t fifo_depth = 8;
+    uint64_t rx_remaining = 0xfffffffffffffff0, tx_remaining = 0xfffffffffffffff0;
+    volatile uint32_t count = 0;
+    volatile uint8_t *dst = buffer_array[0];
+
+    while (true) {
+        if (spi_is_writable(spi) && rx_remaining < tx_remaining + fifo_depth) {
+            spi_get_hw(spi)->dr = (uint32_t) repeated_tx_data;
+            --tx_remaining;
+        }
+        if (spi_is_readable(spi)) {
+            *dst++ = (uint8_t) spi_get_hw(spi)->dr;
+            --rx_remaining;
+            count++;
+            if (count == BUFFER_MAX)
+            {
+                count = 0;
+                if (buffer_idx == 1 || buffer_idx == 2)
+                {
+                    buffer_idx = 0;
+                    buffer_fill = true;
+                    dst = buffer_array[1];
+                } else if (buffer_idx == 0)
+                {
+                    buffer_idx = 1;
+                    buffer_fill = true;
+                    dst = buffer_array[0];
+                }
+            }
+        }
+    }
+
+    return;
+}
+
 void core1_main(void)
 {
     while(true)
     {
-        spi_read_blocking(spi1, 0, buffer_array[0], BUFFER_MAX);
-        buffer_idx = 0;
-        spi_read_blocking(spi1, 0, buffer_array[1], BUFFER_MAX);
-        buffer_idx = 1;
+        spi_infinite_reading(spi1, 0);
     }
 }
+
 
 int main()
 {
@@ -220,8 +255,9 @@ int main()
         /* TCP server loopback test */
         if (data_transfer)
         {
-            if (buffer_idx < 2)
+            if (buffer_idx < 2 && buffer_fill)
             {
+                buffer_fill = false;
                 retval = transfer(SOCKET_LOOPBACK, g_loopback_buf, &recv_size, (char *)(buffer_array[buffer_idx]), BUFFER_MAX, PORT_LOOPBACK);
             }
         }
